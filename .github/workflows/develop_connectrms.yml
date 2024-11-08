@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: windows-latest
 
     steps:
@@ -20,33 +20,22 @@ jobs:
         uses: NuGet/setup-nuget@v1.1.1
 
       - name: Restore NuGet packages
-        run: nuget restore
+        run: nuget restore "RockWeb.csproj"
 
       - name: Publish to folder
-        run: msbuild /nologo /verbosity:m /t:"Build;pipelinePreDeployCopyAllFilesToOneFolder" /p:_PackageTempDir="published"
+        run: msbuild "RockWeb.csproj" /p:Configuration=Release /p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:PackageLocation="published\Package.zip"
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v3
         with:
           name: ASP-app
-          path: 'published/**'
+          path: 'published/Package.zip'
 
-  deploy:
-    runs-on: windows-latest
-    needs: build
-    environment:
-      name: 'Production'
-      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
-    # Remove id-token permission if not using OIDC authentication
-    # permissions:
-    #   id-token: write
-
-    steps:
       - name: Download artifact from build job
         uses: actions/download-artifact@v3
         with:
           name: ASP-app
-      
+
       - name: Login to Azure
         uses: azure/login@v1
         with:
@@ -56,5 +45,6 @@ jobs:
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v2
         with:
-          app-name: 'connectrms'
-          package: 'published'
+          app-name: 'connectrms'  # Replace with your actual web app name
+          package: 'published/Package.zip'
+
